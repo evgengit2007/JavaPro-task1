@@ -7,8 +7,6 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Test {
-    String name() default  "WWWW";
-    String value() default "1.0";
-    int priority() default 5;
+public @interface CsvSource {
+    String value();
 }

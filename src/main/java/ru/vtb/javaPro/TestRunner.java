@@ -37,35 +37,51 @@ public class TestRunner {
     }
 
     static void runTests(Class c) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-        TreeMap<Integer, ArrayList<Method>> treeMap = new TreeMap<>();
+        int priority;
+        TreeMap<Integer, HashMap<Method, String>> treeMap = new TreeMap<>();
         Constructor constructor = c.getDeclaredConstructor();
         Object obj = constructor.newInstance();
         Method[] methods = c.getDeclaredMethods();
         try {
             for (Method method : methods) {
-                System.out.println(method);
+                System.out.println("method: " + method);
                 Annotation[] annotations = method.getDeclaredAnnotations();
                 for (Annotation annotation : annotations) {
-                    System.out.println(annotation);
-                    if (annotation instanceof Test) {
-                        int priority = ((Test) annotation).priority();
-                        if (treeMap.containsKey(priority)) {
-                            ArrayList<Method> listTest = new ArrayList<>(treeMap.get(priority));
-                            listTest.add(method);
-                            treeMap.put(priority, listTest);
-                        } else {
-                            treeMap.put(priority, new ArrayList<>(Collections.singleton(method)));
-                        }
-                    } else if (annotation instanceof BeforeSuite) {
+                    System.out.println("annotation: " + annotation);
+                    if (annotation instanceof BeforeSuite) {
                         if (treeMap.containsKey(-1)) {
-                            throw new RuntimeException("Аннотации " + BeforeSuite.class + " больше 1");
+                            throw new RuntimeException("Annotation " + BeforeSuite.class + " more 1");
                         }
-                        treeMap.put(-1, new ArrayList<>(Collections.singleton(method)));
+                        HashMap<Method, String> hashMap = new HashMap<>();
+                        hashMap.put(method, "");
+                        treeMap.put(-1, hashMap);
                     } else if (annotation instanceof AfterSuite) {
                         if (treeMap.containsKey(-2)) {
-                            throw new RuntimeException("Аннотации " + AfterSuite.class + " больше 1");
+                            throw new RuntimeException("Annotation " + AfterSuite.class + " more 1");
                         }
-                        treeMap.put(-2, new ArrayList<>(Collections.singleton(method)));
+                        HashMap<Method, String> hashMap = new HashMap<>();
+                        hashMap.put(method, "");
+                        treeMap.put(-2, hashMap);
+                    } else {
+                        String str = null;
+                        if (annotation instanceof CsvSource) {
+                            str = ((CsvSource) annotation).value();
+                            System.out.println(str);
+                        }
+                        if (annotation instanceof Test) {
+                            priority = ((Test) annotation).priority();
+                        } else {
+                            priority = treeMap.lastKey() + 1;
+                        }
+                        if (treeMap.containsKey(priority)) {
+                            HashMap<Method, String> hashMap = new HashMap<>(treeMap.get(priority));
+                            hashMap.put(method, str);
+                            treeMap.put(priority, hashMap);
+                        } else {
+                            HashMap<Method, String> hashMap = new HashMap<>();
+                            hashMap.put(method, str);
+                            treeMap.put(priority, hashMap);
+                        }
                     }
                 }
             }
@@ -75,34 +91,54 @@ public class TestRunner {
         // запишем с максимальным индексом метод с аннотацией AfterSuite (было -2, стало макс. значение индекса в TreeMap)
         treeMap.put(treeMap.lastKey()+1, treeMap.get(-2));
         treeMap.remove(-2);
-        System.out.println("---Вывод списка методов---");
-        System.out.println(treeMap.get(-1));
-        for (Map.Entry<Integer, ArrayList<Method>> arrayListMap: treeMap.entrySet()) {
-            System.out.printf("Key: %s  Value: %s \n", arrayListMap.getKey(), arrayListMap.getValue());
+
+        System.out.println("---Print list methods---");
+        for (Map.Entry<Integer, HashMap<Method, String>> mapEntry: treeMap.entrySet()) {
+            System.out.printf("Key: %s  Value: %s \n", mapEntry.getKey(), mapEntry.getValue());
         }
 
         // выполнение методов с аннотациями по порядку: сначала с BeforeSuite, затем с Test, затем с AfterSuite
-        for (Map.Entry<Integer, ArrayList<Method>> arrayListMap: treeMap.entrySet()) {
-            if (arrayListMap.getKey() == -1) {
+        for (Map.Entry<Integer, HashMap<Method, String>> mapEntry: treeMap.entrySet()) {
+            if (mapEntry.getKey() == -1) {
                 // Выполнение метода с аннотацией BeforeSuite
-                for (Method method: arrayListMap.getValue()) {
+                for (Method method: mapEntry.getValue().keySet()) {
                     method.setAccessible(true);
-                    method.invoke(obj, 1);
+//                    method.invoke(obj, 1);
+                    try {
+                        method.invoke(null);
+                    } catch (NullPointerException e) {
+                        throw new RuntimeException("Method " + method.getName() + " is not static");
+                    }
                 }
-            } else if (arrayListMap.getKey() == treeMap.lastKey()) {
-                for (Method method: arrayListMap.getValue()) {
+            } else if (mapEntry.getKey() == treeMap.lastKey()) {
+                for (Method method: mapEntry.getValue().keySet()) {
                     // Выполнение метода с аннотацией AfterSuite
                     method.setAccessible(true);
-                    System.out.println(method.invoke(obj, "Тестовая строка"));
+                    try {
+                        method.invoke(null);
+                    } catch (NullPointerException e) {
+                        throw new RuntimeException("Method " + method.getName() + " is not static");
+                    }
                 }
             } else {
-                for (Method method : arrayListMap.getValue()) {
-                    method.setAccessible(true);
-                    method.invoke(obj);
+                for (Map.Entry<Method, String> hashMap : mapEntry.getValue().entrySet()) {
+                    hashMap.getKey().setAccessible(true);
+                    if (hashMap.getValue() == null) {
+                        hashMap.getKey().invoke(obj, null);
+                    } else {
+                        Object[] arrObj = hashMap.getValue().split(", ");
+//                        String[] arr = hashMap.getValue().split(", ");
+//                        Object[] arrObj = new Object[arr.length];
+                        for (Object str: arrObj) {
+                            System.out.println(str);
+//                            arrObj[0] = Integer.valueOf(str);
+                        }
+                        hashMap.getKey().invoke(obj, arrObj);
+                    }
                 }
             }
         }
 
-        System.out.println("--Конец работы метода runTests--");
+        System.out.println("--End work method runTests--");
     }
 }
