@@ -32,31 +32,31 @@ public class Runner {
 
     @Test(priority = 1)
     public void runMethodTest1() {
-        System.out.println("runMethodTest1 started");
+        System.out.println("    runMethodTest1 started");
     }
 
     @Test(priority = 2)
     public void runMethodTest2() {
-        System.out.println("runMethodTest2 started");
+        System.out.println("    runMethodTest2 started");
     }
 
     @Test
     public void runMethodTestDefault() {
-        System.out.println("runMethodTestDefault started");
+        System.out.println("    runMethodTestDefault started");
     }
 
     @Test
     public void runMethodTestDefaultDouble() {
-        System.out.println("runMethodTestDefaultDouble started");
+        System.out.println("    runMethodTestDefaultDouble started");
     }
     @Test(priority = 3)
     public void runMethodTest3() {
-        System.out.println("runMethodTest3 started");
+        System.out.println("    runMethodTest3 started");
     }
 
     @CsvSource("10, Java, 20, true, 2.5, 2025")
     public void testMethod(int a, String b, int c, boolean d, double e, long l) {
-        System.out.println("testMethod started: a = " + a +
+        System.out.println("    testMethod started: a = " + a +
                 "; b = " + b + "; c = " + c + "; d = " + d +
                 "; e = " + e + "; l = " + l);
     }

@@ -1,7 +1,5 @@
 package ru.vtb.javaPro;
 
-import com.sun.jdi.InvocationException;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
@@ -67,9 +65,6 @@ public class TestRunner {
         } catch (RuntimeException ex) {
             ex.printStackTrace();
         }
-        // запишем с максимальным индексом метод с аннотацией AfterSuite (было -2, стало макс. значение индекса в TreeMap)
-        treeMap.put(treeMap.lastKey()+1, treeMap.get(-2));
-        treeMap.remove(-2);
 
         // Отладка
 /*
@@ -87,7 +82,7 @@ public class TestRunner {
         for (Map.Entry<Integer, HashMap<Method, String>> mapEntry: treeMap.entrySet()) {
             if (mapEntry.getKey() == -1) {
                 // Выполнение метода с аннотацией BeforeSuite
-                for (Method method: mapEntry.getValue().keySet()) {
+                for (Method method : mapEntry.getValue().keySet()) {
                     method.setAccessible(true);
                     try {
                         method.invoke(null);
@@ -95,44 +90,51 @@ public class TestRunner {
                         throw new RuntimeException("Method " + method.getName() + " is not static");
                     }
                 }
-            } else if (mapEntry.getKey().equals(treeMap.lastKey())) {
-                for (Method method: mapEntry.getValue().keySet()) {
-                    // Выполнение метода с аннотацией AfterSuite
-                    method.setAccessible(true);
-                    try {
-                        method.invoke(null);
-                    } catch (NullPointerException e) {
-                        throw new RuntimeException("Method " + method.getName() + " is not static");
-                    }
-                }
+            } else if (mapEntry.getKey() == -2) { // пропускаем, этот метод должен быть последним
             } else {
                 for (Map.Entry<Method, String> hashMap : mapEntry.getValue().entrySet()) {
                     Method method = hashMap.getKey();
                     String str = hashMap.getValue();
-                    runMethod(methodBeforeTest, null, obj);
-                    runMethod(method, str, obj);
-                    runMethod(methodAfterTest, null, obj);
+                    runMethod(methodBeforeTest, obj, null);
+                    runMethod(method, obj, str);
+                    runMethod(methodAfterTest, obj, null);
+                    System.out.println("  -------");
+                }
+            }
+        }
+        // запуск метода с аннотацией AfterSuite (значение индекса в TreeMap = -2)
+        if (treeMap.get(-2) != null) {
+            HashMap<Method, String> hashMap = treeMap.get(-2);
+            for (Map.Entry<Method, String> method : hashMap.entrySet()) {
+                // Выполнение метода с аннотацией AfterSuite
+                method.getKey().setAccessible(true);
+                try {
+                    method.getKey().invoke(null);
+                } catch (NullPointerException e) {
+                    throw new RuntimeException("Method " + method.getKey().getName() + " is not static");
                 }
             }
         }
     }
-    static void runMethod(Method method, String str, Object obj) throws InvocationTargetException, IllegalAccessException
+    static void runMethod(Method method, Object obj, String param) throws InvocationTargetException, IllegalAccessException
     {
         if (method == null) return;
         method.setAccessible(true);
-        if (str == null) {
+        if (param == null) {
             method.invoke(obj);
         } else {
             Class[] parameterTypes = method.getParameterTypes();
-            String[] arrStr = str.split(", ");
+            String[] arrStr = param.split(", ");
             // отладка
 /*
-                        for (Class classobj: parameterTypes) {
-                            System.out.println(classobj.getName());
-                        }
-                        for (Object str: arrStr) {
-                            System.out.println(str);
-                        }
+            for (Class classobj: parameterTypes) {
+                System.out.println(classobj.getName());
+            }
+            for (Object strTemp: arrStr) {
+                System.out.println(strTemp);
+            }
+            System.out.println(parameterTypes.length);
+            System.out.println(arrStr.length);
 */
             if (parameterTypes.length != arrStr.length) {
                 throw new RuntimeException("Count parameters in the annotation not equals signature method");
