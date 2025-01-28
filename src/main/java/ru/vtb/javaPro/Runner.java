@@ -1,17 +1,7 @@
 package ru.vtb.javaPro;
 
 public class Runner {
-    private int fieldInt;
-    private String fieldStr;
-    private Double fieldDouble;
-
     public Runner() {
-    }
-
-    public Runner(int fieldInt, String fieldStr, Double fieldDouble) {
-        this.fieldInt = fieldInt;
-        this.fieldStr = fieldStr;
-        this.fieldDouble = fieldDouble;
     }
 
     @BeforeSuite
@@ -19,12 +9,21 @@ public class Runner {
         System.out.println("runMethodBefore started");
     }
 
-/*
-    @BeforeSuite
-    public static void runMethodBeforeDouble() {
-        System.out.println("runMethodBeforeDouble запущен");
+    /*
+        @BeforeSuite
+        public static void runMethodBeforeDouble() {
+            System.out.println("runMethodBeforeDouble запущен");
+        }
+    */
+    @BeforeTest
+    public static void runMethodBeforeTest() {
+        System.out.println("  runMethodBeforeTest started");
     }
-*/
+
+    @AfterTest
+    public static void runMethodAfterTest() {
+        System.out.println("  runMethodAfterTest started");
+    }
 
     @AfterSuite
     public static void runMethodAfter() {
@@ -55,8 +54,10 @@ public class Runner {
         System.out.println("runMethodTest3 started");
     }
 
-    @CsvSource("10, Java, 20, true")
-    public void testMethod(int a, String b, int c, boolean d) {
-        System.out.println("testMethod started:/n" + "a = " + a + "/nb = " + b);
+    @CsvSource("10, Java, 20, true, 2.5, 2025")
+    public void testMethod(int a, String b, int c, boolean d, double e, long l) {
+        System.out.println("testMethod started: a = " + a +
+                "; b = " + b + "; c = " + c + "; d = " + d +
+                "; e = " + e + "; l = " + l);
     }
 }

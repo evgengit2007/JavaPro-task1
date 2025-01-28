@@ -9,46 +9,26 @@ import java.util.*;
 public class TestRunner {
     public static void main(String[] args) throws Exception{
         runTests(Runner.class);
-        // для проверки
-        Runner runner1 = new Runner(1, "1111", 2.5);
-        runner1.runMethodTest1();
-        Class<Runner> runnerClass = Runner.class;
-        try {
-            Method method = runnerClass.getDeclaredMethod("runMethodTest1");
-            System.out.println(method);
-            method.setAccessible(true);
-            method.invoke(runner1);
-            Annotation annotation = method.getDeclaredAnnotation(Test.class);
-            System.out.println(annotation);
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        } catch (Exception ee) {
-            ee.printStackTrace();
-        }
-        Annotation[] annotations = runnerClass.getAnnotations();
-        for (Annotation ann: annotations) {
-            System.out.println(ann.annotationType().getName());
-            if (ann instanceof Test) {
-                System.out.println("Запущен Test");
-            }
-        }
-        System.out.println("-------------");
-
     }
 
     static void runTests(Class c) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         int priority;
         TreeMap<Integer, HashMap<Method, String>> treeMap = new TreeMap<>();
+        Method methodBeforeTest = null;
+        Method methodAfterTest = null;
         Constructor constructor = c.getDeclaredConstructor();
         Object obj = constructor.newInstance();
         Method[] methods = c.getDeclaredMethods();
         try {
+            // Определим методы BeforeTest и AfterTest, их не пишем в treeMap
             for (Method method : methods) {
-                System.out.println("method: " + method);
                 Annotation[] annotations = method.getDeclaredAnnotations();
                 for (Annotation annotation : annotations) {
-                    System.out.println("annotation: " + annotation);
-                    if (annotation instanceof BeforeSuite) {
+                    if (annotation instanceof BeforeTest) {
+                        methodBeforeTest = method;
+                    } else if (annotation instanceof AfterTest) {
+                        methodAfterTest = method;
+                    } else if (annotation instanceof BeforeSuite) {
                         if (treeMap.containsKey(-1)) {
                             throw new RuntimeException("Annotation " + BeforeSuite.class + " more 1");
                         }
@@ -66,7 +46,6 @@ public class TestRunner {
                         String str = null;
                         if (annotation instanceof CsvSource) {
                             str = ((CsvSource) annotation).value();
-                            System.out.println(str);
                         }
                         if (annotation instanceof Test) {
                             priority = ((Test) annotation).priority();
@@ -92,25 +71,31 @@ public class TestRunner {
         treeMap.put(treeMap.lastKey()+1, treeMap.get(-2));
         treeMap.remove(-2);
 
+        // Отладка
+/*
         System.out.println("---Print list methods---");
         for (Map.Entry<Integer, HashMap<Method, String>> mapEntry: treeMap.entrySet()) {
             System.out.printf("Key: %s  Value: %s \n", mapEntry.getKey(), mapEntry.getValue());
         }
+*/
 
-        // выполнение методов с аннотациями по порядку: сначала с BeforeSuite, затем с Test, затем с AfterSuite
+        // выполнение методов с аннотациями по порядку: сначала с BeforeSuite,
+        // затем с Test и другие, затем с AfterSuite
+        // если есть методы с аннотациями BeforeTest и AfterTest (их может быть несколько),
+        // то они выполняются до и соответственно после каждого метода
+        // кроме BeforeSuite и AfterSuite
         for (Map.Entry<Integer, HashMap<Method, String>> mapEntry: treeMap.entrySet()) {
             if (mapEntry.getKey() == -1) {
                 // Выполнение метода с аннотацией BeforeSuite
                 for (Method method: mapEntry.getValue().keySet()) {
                     method.setAccessible(true);
-//                    method.invoke(obj, 1);
                     try {
                         method.invoke(null);
                     } catch (NullPointerException e) {
                         throw new RuntimeException("Method " + method.getName() + " is not static");
                     }
                 }
-            } else if (mapEntry.getKey() == treeMap.lastKey()) {
+            } else if (mapEntry.getKey().equals(treeMap.lastKey())) {
                 for (Method method: mapEntry.getValue().keySet()) {
                     // Выполнение метода с аннотацией AfterSuite
                     method.setAccessible(true);
@@ -122,23 +107,47 @@ public class TestRunner {
                 }
             } else {
                 for (Map.Entry<Method, String> hashMap : mapEntry.getValue().entrySet()) {
-                    hashMap.getKey().setAccessible(true);
-                    if (hashMap.getValue() == null) {
-                        hashMap.getKey().invoke(obj, null);
-                    } else {
-                        Object[] arrObj = hashMap.getValue().split(", ");
-//                        String[] arr = hashMap.getValue().split(", ");
-//                        Object[] arrObj = new Object[arr.length];
-                        for (Object str: arrObj) {
-                            System.out.println(str);
-//                            arrObj[0] = Integer.valueOf(str);
-                        }
-                        hashMap.getKey().invoke(obj, arrObj);
-                    }
+                    Method method = hashMap.getKey();
+                    String str = hashMap.getValue();
+                    runMethod(methodBeforeTest, null, obj);
+                    runMethod(method, str, obj);
+                    runMethod(methodAfterTest, null, obj);
                 }
             }
         }
-
-        System.out.println("--End work method runTests--");
+    }
+    static void runMethod(Method method, String str, Object obj) throws InvocationTargetException, IllegalAccessException
+    {
+        if (method == null) return;
+        method.setAccessible(true);
+        if (str == null) {
+            method.invoke(obj);
+        } else {
+            Class[] parameterTypes = method.getParameterTypes();
+            String[] arrStr = str.split(", ");
+            // отладка
+/*
+                        for (Class classobj: parameterTypes) {
+                            System.out.println(classobj.getName());
+                        }
+                        for (Object str: arrStr) {
+                            System.out.println(str);
+                        }
+*/
+            if (parameterTypes.length != arrStr.length) {
+                throw new RuntimeException("Count parameters in the annotation not equals signature method");
+            }
+            Object[] arrObj = new Object[parameterTypes.length];
+            for (int i = 0; i < parameterTypes.length; i++) {
+                switch (parameterTypes[i].getName()) {
+                    case "int": arrObj[i] = Integer.parseInt(arrStr[i]); break;
+                    case "java.lang.String": arrObj[i] = arrStr[i]; break;
+                    case "boolean": arrObj[i] = Boolean.parseBoolean(arrStr[i]); break;
+                    case "double": arrObj[i] = Double.parseDouble(arrStr[i]); break;
+                    case "long": arrObj[i] = Long.parseLong(arrStr[i]); break;
+                }
+            }
+            method.invoke(obj, arrObj);
+        }
     }
 }
