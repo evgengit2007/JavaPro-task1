@@ -9,113 +9,79 @@ public class TestRunner {
         runTests(Runner.class);
     }
 
-    static void runTests(Class c) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-        int priority;
-        TreeMap<Integer, HashMap<Method, String>> treeMap = new TreeMap<>();
-        Method methodBeforeTest = null;
-        Method methodAfterTest = null;
+    static void runTests(Class c) throws Exception{
+        List<Method> beforeSuiteMethods = new ArrayList<>();
+        List<Method> afterSuiteMethods = new ArrayList<>();
+        List<Method> allMethods = new ArrayList<>();
+        List<TestMethod> testMethods = new ArrayList<>();
+        List<Method> beforeTestMethods = new ArrayList<>();
+        List<Method> afterTestMethods = new ArrayList<>();
+        List<Method> csvSourceMethods = new ArrayList<>();
+        List<Integer> integerList = List.of(1,2,3,4,5,6,7,8,9,10);
         Constructor constructor = c.getDeclaredConstructor();
         Object obj = constructor.newInstance();
         Method[] methods = c.getDeclaredMethods();
-        try {
-            // Определим методы BeforeTest и AfterTest, их не пишем в treeMap
-            for (Method method : methods) {
-                Annotation[] annotations = method.getDeclaredAnnotations();
-                for (Annotation annotation : annotations) {
-                    if (annotation instanceof BeforeTest) {
-                        methodBeforeTest = method;
-                    } else if (annotation instanceof AfterTest) {
-                        methodAfterTest = method;
-                    } else if (annotation instanceof BeforeSuite) {
-                        if (treeMap.containsKey(-1)) {
-                            throw new RuntimeException("Annotation " + BeforeSuite.class + " more 1");
-                        }
-                        HashMap<Method, String> hashMap = new HashMap<>();
-                        hashMap.put(method, "");
-                        treeMap.put(-1, hashMap);
-                    } else if (annotation instanceof AfterSuite) {
-                        if (treeMap.containsKey(-2)) {
-                            throw new RuntimeException("Annotation " + AfterSuite.class + " more 1");
-                        }
-                        HashMap<Method, String> hashMap = new HashMap<>();
-                        hashMap.put(method, "");
-                        treeMap.put(-2, hashMap);
-                    } else {
-                        String str = null;
-                        if (annotation instanceof CsvSource) {
-                            str = ((CsvSource) annotation).value();
-                        }
-                        if (annotation instanceof Test) {
-                            priority = ((Test) annotation).priority();
-                        } else {
-                            priority = treeMap.lastKey() + 1;
-                        }
-                        if (treeMap.containsKey(priority)) {
-                            HashMap<Method, String> hashMap = new HashMap<>(treeMap.get(priority));
-                            hashMap.put(method, str);
-                            treeMap.put(priority, hashMap);
-                        } else {
-                            HashMap<Method, String> hashMap = new HashMap<>();
-                            hashMap.put(method, str);
-                            treeMap.put(priority, hashMap);
-                        }
-                    }
-                }
+        for (Method method: methods) {
+            if (method.isAnnotationPresent(Test.class)) {
+                Annotation annotation = method.getAnnotation(Test.class);
+                int priority = ((Test) annotation).priority();
+                if (!integerList.contains(priority)) throw new Exception("Priority not in array 1-10");
+                testMethods.add(new TestMethod(priority, method));
             }
-        } catch (RuntimeException ex) {
-            ex.printStackTrace();
+            if (method.isAnnotationPresent(BeforeSuite.class)) {
+                if (beforeSuiteMethods.size() > 1) throw new Exception("Double annotation BeforeSuite");
+                if (!Modifier.toString(method.getModifiers()).contains("static"))
+                    throw new Exception("Method with annotation BeforeSuite is not static");
+                beforeSuiteMethods.add(method);
+            }
+            if (method.isAnnotationPresent(AfterSuite.class)) {
+                if (afterSuiteMethods.size() > 1) throw new Exception("Double annotation AfterSuite");
+                if (!Modifier.toString(method.getModifiers()).contains("static"))
+                    throw new Exception("Method with annotation AfterSuite is not static");
+                afterSuiteMethods.add(method);
+            }
+            if (method.isAnnotationPresent(BeforeTest.class)) {
+                beforeTestMethods.add(method);
+            }
+            if (method.isAnnotationPresent(AfterTest.class)) {
+                afterTestMethods.add(method);
+            }
+            if (method.isAnnotationPresent(CsvSource.class)) {
+                csvSourceMethods.add(method);
+            }
+        }
+        testMethods = testMethods.stream()
+                .sorted(Comparator.comparing(testMethod -> testMethod.getPriority()))
+                .toList();
+        for (TestMethod testMethod: testMethods) {
+            allMethods.addAll(beforeTestMethods);
+            allMethods.add(testMethod.getMethod());
+            allMethods.addAll(afterTestMethods);
         }
 
-        // Отладка
-/*
-        System.out.println("---Print list methods---");
-        for (Map.Entry<Integer, HashMap<Method, String>> mapEntry: treeMap.entrySet()) {
-            System.out.printf("Key: %s  Value: %s \n", mapEntry.getKey(), mapEntry.getValue());
+        // Running methods in order
+        // first method with BeforeSuite annotation
+        if (beforeSuiteMethods.size() == 1) {
+            beforeSuiteMethods.get(0).setAccessible(true);
+            beforeSuiteMethods.get(0).invoke(null);
         }
-*/
-
-        // выполнение методов с аннотациями по порядку: сначала с BeforeSuite,
-        // затем с Test и другие, затем с AfterSuite
-        // если есть методы с аннотациями BeforeTest и AfterTest (их может быть несколько),
-        // то они выполняются до и соответственно после каждого метода
-        // кроме BeforeSuite и AfterSuite
-        for (Map.Entry<Integer, HashMap<Method, String>> mapEntry: treeMap.entrySet()) {
-            if (mapEntry.getKey() == -1) {
-                // Выполнение метода с аннотацией BeforeSuite
-                for (Method method : mapEntry.getValue().keySet()) {
-                    method.setAccessible(true);
-                    try {
-                        method.invoke(null);
-                    } catch (NullPointerException e) {
-                        throw new RuntimeException("Method " + method.getName() + " is not static");
-                    }
-                }
-            } else if (mapEntry.getKey() == -2) { // пропускаем, этот метод должен быть последним
-            } else {
-                for (Map.Entry<Method, String> hashMap : mapEntry.getValue().entrySet()) {
-                    Method method = hashMap.getKey();
-                    String str = hashMap.getValue();
-                    runMethod(methodBeforeTest, obj, null);
-                    runMethod(method, obj, str);
-                    runMethod(methodAfterTest, obj, null);
-                    System.out.println("  -------");
-                }
-            }
+        // Then methods with Test annotation
+        for (int i = 0; i < allMethods.size(); i++) {
+            runMethod(allMethods.get(i), obj, null);
         }
-        // запуск метода с аннотацией AfterSuite (значение индекса в TreeMap = -2)
-        if (treeMap.get(-2) != null) {
-            HashMap<Method, String> hashMap = treeMap.get(-2);
-            for (Map.Entry<Method, String> method : hashMap.entrySet()) {
-                // Выполнение метода с аннотацией AfterSuite
-                method.getKey().setAccessible(true);
-                try {
-                    method.getKey().invoke(null);
-                } catch (NullPointerException e) {
-                    throw new RuntimeException("Method " + method.getKey().getName() + " is not static");
-                }
-            }
+        // Then methods with CsvSource annotation
+        for (Method method: csvSourceMethods) {
+            Annotation annotation = method.getAnnotation(CsvSource.class);
+            String str = ((CsvSource) annotation).value();
+            runMethod(method, obj, str);
+        }
+        // Then methods with AfterSuite annotation
+        if (afterSuiteMethods.size() == 1) {
+            afterSuiteMethods.get(0).setAccessible(true);
+            afterSuiteMethods.get(0).invoke(null);
         }
     }
+
     static void runMethod(Method method, Object obj, String param) throws InvocationTargetException, IllegalAccessException
     {
         if (method == null) return;
@@ -125,17 +91,6 @@ public class TestRunner {
         } else {
             Class[] parameterTypes = method.getParameterTypes();
             String[] arrStr = param.split(", ");
-            // отладка
-/*
-            for (Class classobj: parameterTypes) {
-                System.out.println(classobj.getName());
-            }
-            for (Object strTemp: arrStr) {
-                System.out.println(strTemp);
-            }
-            System.out.println(parameterTypes.length);
-            System.out.println(arrStr.length);
-*/
             if (parameterTypes.length != arrStr.length) {
                 throw new RuntimeException("Count parameters in the annotation not equals signature method");
             }
