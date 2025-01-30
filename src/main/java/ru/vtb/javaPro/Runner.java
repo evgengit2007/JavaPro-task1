@@ -5,29 +5,27 @@ public class Runner {
     }
 
     @BeforeSuite
-    public static void runMethodBefore() {
-        System.out.println("runMethodBefore started");
-    }
-
-    /*
-        @BeforeSuite
-        public static void runMethodBeforeDouble() {
-            System.out.println("runMethodBeforeDouble запущен");
-        }
-    */
-    @BeforeTest
-    public static void runMethodBeforeTest() {
-        System.out.println("  runMethodBeforeTest started");
-    }
-
-    @AfterTest
-    public static void runMethodAfterTest() {
-        System.out.println("  runMethodAfterTest started");
+    public static void runMethodBeforeSuite() {
+        System.out.println("runMethodBeforeSuite started");
     }
 
     @AfterSuite
-    public static void runMethodAfter() {
-        System.out.println("runMethodAfter started");
+    public static void runMethodAfterSuite() {
+        System.out.println("runMethodAfterSuite started");
+    }
+
+    @BeforeTest
+    public void runMethodBeforeTest() {
+        System.out.println("  runMethodBeforeTest started");
+    }
+
+    @BeforeTest
+    public void runMethodBeforeTestDouble() {
+        System.out.println("  runMethodBeforeTestDouble started");
+    }
+    @AfterTest
+    public void runMethodAfterTest() {
+        System.out.println("  runMethodAfterTest started");
     }
 
     @Test(priority = 1)
@@ -55,9 +53,15 @@ public class Runner {
     }
 
     @CsvSource("10, Java, 20, true, 2.5, 2025")
-    public void testMethod(int a, String b, int c, boolean d, double e, long l) {
-        System.out.println("    testMethod started: a = " + a +
+    public void csvMethod(int a, String b, int c, boolean d, double e, long l) {
+        System.out.println("    csvMethod started: a = " + a +
                 "; b = " + b + "; c = " + c + "; d = " + d +
                 "; e = " + e + "; l = " + l);
+    }
+    @CsvSource("10, true, 20, Java, 2.5, 2025")
+    public void csvMethodDouble(int a, boolean b, int c, String s, double d, long l) {
+        System.out.println("    csvMethodDouble started: a = " + a +
+                "; b = " + b + "; s = " + s + "; d = " + d +
+                "; l = " + l);
     }
 }
