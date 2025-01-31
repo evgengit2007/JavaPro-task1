@@ -71,9 +71,9 @@ public class TestRunner {
         }
         // Then methods with CsvSource annotation
         for (Method method: csvSourceMethods) {
-            Annotation annotation = method.getAnnotation(CsvSource.class);
-            String str = ((CsvSource) annotation).value();
-            runMethod(method, obj, str);
+            List<String> paramStr = new ArrayList<>();
+            paramStr = Arrays.stream(method.getAnnotation(CsvSource.class).value().split(",")).toList();
+            runMethod(method, obj, paramStr);
         }
         // Then methods with AfterSuite annotation
         if (afterSuiteMethods.size() == 1) {
@@ -82,26 +82,25 @@ public class TestRunner {
         }
     }
 
-    static void runMethod(Method method, Object obj, String param) throws InvocationTargetException, IllegalAccessException
+    static void runMethod(Method method, Object obj,  List<String> paramStr) throws InvocationTargetException, IllegalAccessException
     {
         if (method == null) return;
         method.setAccessible(true);
-        if (param == null) {
+        if (paramStr == null) {
             method.invoke(obj);
         } else {
             Class[] parameterTypes = method.getParameterTypes();
-            String[] arrStr = param.split(", ");
-            if (parameterTypes.length != arrStr.length) {
+            if (parameterTypes.length != paramStr.size()) {
                 throw new RuntimeException("Count parameters in the annotation not equals signature method");
             }
             Object[] arrObj = new Object[parameterTypes.length];
             for (int i = 0; i < parameterTypes.length; i++) {
-                switch (parameterTypes[i].getName()) {
-                    case "int": arrObj[i] = Integer.parseInt(arrStr[i]); break;
-                    case "java.lang.String": arrObj[i] = arrStr[i]; break;
-                    case "boolean": arrObj[i] = Boolean.parseBoolean(arrStr[i]); break;
-                    case "double": arrObj[i] = Double.parseDouble(arrStr[i]); break;
-                    case "long": arrObj[i] = Long.parseLong(arrStr[i]); break;
+                switch (parameterTypes[i].getSimpleName()) {
+                    case "int": arrObj[i] = Integer.parseInt(paramStr.get(i)); break;
+                    case "String": arrObj[i] = paramStr.get(i); break;
+                    case "boolean": arrObj[i] = Boolean.parseBoolean(paramStr.get(i)); break;
+                    case "double": arrObj[i] = Double.parseDouble(paramStr.get(i)); break;
+                    case "long": arrObj[i] = Long.parseLong(paramStr.get(i)); break;
                 }
             }
             method.invoke(obj, arrObj);
